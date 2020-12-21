@@ -475,6 +475,17 @@ API_AVAILABLE(ios(13.0)){
         navitem.titleView = subview;
         break;
       }
+      case RNSScreenStackHeaderSubviewTypeSearchBar: {
+        if ([subview.subviews[0] isKindOfClass:[UISearchBar class]]) {
+          if (@available(iOS 11.0, *)) {
+            navitem.searchController = [UISearchController new];
+            UISearchBar *searchBar = subview.subviews[0];
+            navitem.searchController.searchBar.delegate = searchBar;
+            navitem.searchController.searchBar.placeholder = searchBar.placeholder;
+
+          }
+        }
+      }
       case RNSScreenStackHeaderSubviewTypeBackButton: {
         break;
       }
@@ -779,6 +790,7 @@ RCT_ENUM_CONVERTER(RNSScreenStackHeaderSubviewType, (@{
   @"right": @(RNSScreenStackHeaderSubviewTypeRight),
   @"title": @(RNSScreenStackHeaderSubviewTypeTitle),
   @"center": @(RNSScreenStackHeaderSubviewTypeCenter),
+  @"searchBar": @(RNSScreenStackHeaderSubviewTypeSearchBar),
   }), RNSScreenStackHeaderSubviewTypeTitle, integerValue)
 
 RCT_ENUM_CONVERTER(UISemanticContentAttribute, (@{

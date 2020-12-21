@@ -281,6 +281,7 @@ declare module 'react-native-screens' {
   export const ScreenStackHeaderLeftView: ComponentClass<ViewProps>;
   export const ScreenStackHeaderRightView: ComponentClass<ViewProps>;
   export const ScreenStackHeaderCenterView: ComponentClass<ViewProps>;
+  export const ScreenStackHeaderSearchBarView: ComponentClass<ViewProps>;
   export const ScreenStackHeaderConfig: ComponentClass<ScreenStackHeaderConfigProps>;
   export const shouldUseActivityState: boolean;
 }
