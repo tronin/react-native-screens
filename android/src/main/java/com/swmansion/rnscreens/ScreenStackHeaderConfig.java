@@ -3,6 +3,7 @@ package com.swmansion.rnscreens;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.graphics.PorterDuff;
+import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.text.TextUtils;
@@ -22,18 +23,25 @@ import androidx.fragment.app.Fragment;
 
 import com.facebook.react.ReactApplication;
 import com.facebook.react.bridge.JSApplicationIllegalArgumentException;
+import com.facebook.react.uimanager.PixelUtil;
 import com.facebook.react.views.text.ReactFontManager;
+import com.google.android.material.appbar.AppBarLayout;
+import com.google.android.material.appbar.CollapsingToolbarLayout;
 
 import java.util.ArrayList;
 
 public class ScreenStackHeaderConfig extends ViewGroup {
 
-  private final ArrayList<ScreenStackHeaderSubview> mConfigSubviews = new ArrayList<>(3);
+private final ArrayList<ScreenStackHeaderSubview> mConfigSubviews = new ArrayList<>(3);
+  private int mSubviewsCount = 0;
+  private boolean mCollapsable;
   private String mTitle;
   private int mTitleColor;
   private String mTitleFontFamily;
-  private String mDirection;
   private float mTitleFontSize;
+  private boolean mLargeTitle;
+  private String mLargeTitleFontFamily;
+  private float mLargeTitleFontSize;
   private Integer mBackgroundColor;
   private boolean mIsHidden;
   private boolean mIsBackButtonHidden;
@@ -45,6 +53,7 @@ public class ScreenStackHeaderConfig extends ViewGroup {
   private int mTintColor;
   private final Toolbar mToolbar;
   private int mScreenOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
+  private final CollapsingToolbarLayout mCollapsingToolbarLayout;
 
   private boolean mIsAttachedToWindow = false;
 
@@ -90,10 +99,20 @@ public class ScreenStackHeaderConfig extends ViewGroup {
     mDefaultStartInset = mToolbar.getContentInsetStart();
     mDefaultStartInsetWithNavigation = mToolbar.getContentInsetStartWithNavigation();
 
+    CollapsingToolbarLayout.LayoutParams toolbarLayoutParams = new CollapsingToolbarLayout.LayoutParams(
+        ViewGroup.LayoutParams.MATCH_PARENT, getToolbarHeight());
+    toolbarLayoutParams.setCollapseMode(CollapsingToolbarLayout.LayoutParams.COLLAPSE_MODE_PIN);
+    mToolbar.setLayoutParams(toolbarLayoutParams);
+
+    mCollapsingToolbarLayout = new CollapsingToolbarLayout(getContext());
+    mCollapsingToolbarLayout.setFitsSystemWindows(true);
+    mCollapsingToolbarLayout.addView(mToolbar);
+
     // set primary color as background by default
     TypedValue tv = new TypedValue();
     if (context.getTheme().resolveAttribute(android.R.attr.colorPrimary, tv, true)) {
-      mToolbar.setBackgroundColor(tv.data);
+      mCollapsingToolbarLayout.setBackgroundColor(tv.data);
+      mCollapsingToolbarLayout.setStatusBarScrimColor(tv.data);
     }
     mToolbar.setClipChildren(false);
   }
@@ -118,6 +137,14 @@ public class ScreenStackHeaderConfig extends ViewGroup {
   protected void onDetachedFromWindow() {
     super.onDetachedFromWindow();
     mIsAttachedToWindow = false;
+  }
+
+  private int getToolbarHeight() {
+    TypedValue tv = new TypedValue();
+    if (getContext().getTheme().resolveAttribute(android.R.attr.actionBarSize, tv, true)) {
+      return TypedValue.complexToDimensionPixelSize(tv.data, getResources().getDisplayMetrics());
+    }
+    return (int) PixelUtil.toPixelFromDIP(56);
   }
 
   private Screen getScreen() {
@@ -179,14 +206,14 @@ public class ScreenStackHeaderConfig extends ViewGroup {
     }
 
     if (mIsHidden) {
-      if (mToolbar.getParent() != null) {
+      if (mCollapsingToolbarLayout.getParent() != null) {
         getScreenFragment().removeToolbar();
       }
       return;
     }
 
-    if (mToolbar.getParent() == null) {
-      getScreenFragment().setToolbar(mToolbar);
+    if (mCollapsingToolbarLayout.getParent() == null) {
+      getScreenFragment().setToolbar(mCollapsingToolbarLayout);
     }
 
     if (mIsTopInsetEnabled) {
@@ -222,6 +249,20 @@ public class ScreenStackHeaderConfig extends ViewGroup {
     mToolbar.setNavigationOnClickListener(mBackClickListener);
 
 
+    AppBarLayout.LayoutParams collapsingLayoutParams = new AppBarLayout.LayoutParams(
+        AppBarLayout.LayoutParams.MATCH_PARENT,
+        mLargeTitle ? (int) PixelUtil.toPixelFromDIP(156) : AppBarLayout.LayoutParams.WRAP_CONTENT);
+
+    int scrollFlags = AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL | AppBarLayout.LayoutParams.SCROLL_FLAG_SNAP;
+    if (mCollapsable) {
+      scrollFlags |= AppBarLayout.LayoutParams.SCROLL_FLAG_ENTER_ALWAYS;
+      scrollFlags |= AppBarLayout.LayoutParams.SCROLL_FLAG_ENTER_ALWAYS_COLLAPSED;
+    } else {
+      scrollFlags |= AppBarLayout.LayoutParams.SCROLL_FLAG_EXIT_UNTIL_COLLAPSED;
+    }
+    collapsingLayoutParams.setScrollFlags(scrollFlags);
+    mCollapsingToolbarLayout.setLayoutParams(collapsingLayoutParams);
+
     // shadow
     getScreenFragment().setToolbarShadowHidden(mIsShadowHidden);
 
@@ -230,29 +271,48 @@ public class ScreenStackHeaderConfig extends ViewGroup {
 
     // title
     actionBar.setTitle(mTitle);
+
     if (TextUtils.isEmpty(mTitle)) {
       // if title is empty we set start  navigation inset to 0 to give more space to custom rendered
       // views. When it is set to default it'd take up additional distance from the back button which
       // would impact the position of custom header views rendered at the center.
       mToolbar.setContentInsetStartWithNavigation(0);
     }
+
+    mCollapsingToolbarLayout.setTitle(mTitle);
+    mCollapsingToolbarLayout.setTitleEnabled(mLargeTitle);
+
     TextView titleTextView = getTitleTextView();
     if (mTitleColor != 0) {
       mToolbar.setTitleTextColor(mTitleColor);
+      mCollapsingToolbarLayout.setCollapsedTitleTextColor(mTitleColor);
+      mCollapsingToolbarLayout.setExpandedTitleColor(mTitleColor);
     }
     if (titleTextView != null) {
       if (mTitleFontFamily != null) {
-        titleTextView.setTypeface(ReactFontManager.getInstance().getTypeface(
-                mTitleFontFamily, 0, getContext().getAssets()));
+        Typeface titleTypeface = ReactFontManager.getInstance().getTypeface(
+            mTitleFontFamily, 0, getContext().getAssets());
+        titleTextView.setTypeface(titleTypeface);
+        mCollapsingToolbarLayout.setCollapsedTitleTypeface(titleTypeface);
+      }
+      if (mLargeTitleFontFamily != null) {
+        Typeface titleTypeface = ReactFontManager.getInstance().getTypeface(
+            mLargeTitleFontFamily, 0, getContext().getAssets());
+        mCollapsingToolbarLayout.setExpandedTitleTypeface(titleTypeface);
       }
       if (mTitleFontSize > 0) {
         titleTextView.setTextSize(mTitleFontSize);
       }
+      if (mLargeTitleFontSize > 0) {
+        // TODO: Figure out if it is possible to change font size.
+      }
     }
 
-    // background
-    if (mBackgroundColor != null) {
+    if (mBackgroundColor != 0 || mBackgroundColor != null) {
       mToolbar.setBackgroundColor(mBackgroundColor);
+
+      mCollapsingToolbarLayout.setBackgroundColor(mBackgroundColor);
+      mCollapsingToolbarLayout.setStatusBarScrimColor(mBackgroundColor);
     }
 
     // color
@@ -361,6 +421,9 @@ public class ScreenStackHeaderConfig extends ViewGroup {
   public int getScreenOrientation() {
     return mScreenOrientation;
   }
+  public void setCollapsable(boolean collapsable) {
+    mCollapsable = collapsable;
+  }
 
   public void setTitle(String title) {
     mTitle = title;
@@ -372,6 +435,18 @@ public class ScreenStackHeaderConfig extends ViewGroup {
 
   public void setTitleFontSize(float titleFontSize) {
     mTitleFontSize = titleFontSize;
+  }
+
+  public void setLargeTitle(Boolean largeTitle) {
+    mLargeTitle = largeTitle;
+  }
+
+  public void setLargeTitleFontFamily(String titleFontFamily) {
+    mLargeTitleFontFamily = titleFontFamily;
+  }
+
+  public void setLargeTitleFontSize(float titleFontSize) {
+    mLargeTitleFontSize = titleFontSize;
   }
 
   public void setTitleColor(int color) {
