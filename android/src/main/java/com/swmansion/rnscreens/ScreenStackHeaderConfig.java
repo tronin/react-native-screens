@@ -59,6 +59,7 @@ private final ArrayList<ScreenStackHeaderSubview> mConfigSubviews = new ArrayLis
 
   private int mDefaultStartInset;
   private int mDefaultStartInsetWithNavigation;
+  private String mDirection;
 
   private static class DebugMenuToolbar extends Toolbar {
 
